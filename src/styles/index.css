@@ -1,0 +1,307 @@
+:root {
+  --bg-page: #F8FAF9;
+  --bg-card: #FFFFFF;
+  --bg-input: #F1F5F3;
+  --border: #E2E8F0;
+
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+
+  --brand: #10B981;
+  --brand-light: #ECFDF5;
+  --brand-dark: #047857;
+
+  --accent-blue: #3B82F6;
+  --accent-blue-light: #EFF6FF;
+
+  --radius-card: 20px;
+  --radius-btn: 14px;
+  --radius-full: 9999px;
+
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Shell */
+.app-shell {
+  width: 100%;
+  max-width: 440px;
+  min-height: 100vh;
+  background: var(--bg-page);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-bottom: 110px;
+}
+
+/* Header */
+.top-header {
+  padding: 1.25rem 1.25rem 0.75rem;
+  background: var(--bg-page);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.app-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+}
+
+.date-pill {
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+}
+
+/* Today Card */
+.today-card {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+  color: #FFFFFF;
+  border-radius: var(--radius-card);
+  padding: 1.5rem;
+  margin: 0.5rem 1.25rem 1rem;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+}
+
+.today-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.today-amount {
+  font-size: 2.75rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -0.03em;
+  margin: 0.2rem 0 0.5rem;
+}
+
+.compare-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.775rem;
+  font-weight: 700;
+}
+
+.compare-up {
+  background: rgba(244, 63, 94, 0.2);
+  color: #FB7185;
+}
+
+.compare-down {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34D399;
+}
+
+/* Non-Scrolling Static Preset Grid */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.preset-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 0.5rem;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  transition: all 0.1s ease;
+  text-align: center;
+}
+
+.preset-button:active {
+  transform: scale(0.96);
+  background: var(--brand-light);
+  border-color: var(--brand);
+  color: var(--brand-dark);
+}
+
+/* Clean Cards & Rows */
+.clean-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 1.25rem;
+  margin: 0 1.25rem 1rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  margin-bottom: 0.65rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.item-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Form Inputs */
+.clean-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.1rem;
+}
+
+.clean-label {
+  font-size: 0.775rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.clean-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.clean-input:focus {
+  background: #FFFFFF;
+  border-color: var(--brand);
+}
+
+.action-btn {
+  width: 100%;
+  padding: 0.9rem 1.25rem;
+  background: var(--brand);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-btn);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+
+/* Perfectly Aligned Bottom Navigation Bar */
+.bottom-bar-3tab {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 440px;
+  height: 68px;
+  background: #FFFFFF;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 1fr;
+  align-items: center;
+  z-index: 100;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  padding: 0 0.75rem;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  background: none;
+  border: none;
+  color: #94A3B8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  height: 100%;
+}
+
+.tab-item.active {
+  color: var(--brand);
+}
+
+/* Distinct Center Add Button - Vertically Aligned */
+.center-add-button {
+  background: var(--brand);
+  color: #FFFFFF;
+  border-radius: var(--radius-full);
+  height: 42px;
+  padding: 0 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: transform 0.1s ease;
+  margin: 0 auto;
+}
+
+.center-add-button:active {
+  transform: scale(0.96);
+  background: var(--brand-dark);
+}
