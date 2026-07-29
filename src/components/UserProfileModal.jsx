@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, X, Check, Sparkles } from 'lucide-react';
+import { User, X, Check } from 'lucide-react';
 
 export function UserProfileModal({ isOpen, onClose, currentName, onSaveName }) {
   const [nameInput, setNameInput] = useState(currentName || '');
@@ -23,7 +23,9 @@ export function UserProfileModal({ isOpen, onClose, currentName, onSaveName }) {
             <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <User size={18} color="#10B981" />
             </div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>Your Profile</h2>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              {currentName ? 'Edit Your Name' : 'Welcome to Expenso!'}
+            </h2>
           </div>
           {currentName && (
             <button 
@@ -39,7 +41,7 @@ export function UserProfileModal({ isOpen, onClose, currentName, onSaveName }) {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-            Enter your name to personalize your expense dashboard. Each person gets their own separate data!
+            Enter your name to personalize your homepage header. Your data is 100% private to your device!
           </p>
 
           <div className="clean-input-group" style={{ marginBottom: 0 }}>
@@ -76,7 +78,7 @@ export function UserProfileModal({ isOpen, onClose, currentName, onSaveName }) {
             }}
           >
             <Check size={18} />
-            <span>Save Profile</span>
+            <span>Save Name</span>
           </button>
 
         </form>

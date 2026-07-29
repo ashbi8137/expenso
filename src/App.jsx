@@ -19,7 +19,6 @@ import {
   BarChart3,
   Calendar,
   Sparkles,
-  UserCheck,
   User
 } from 'lucide-react';
 
@@ -68,21 +67,21 @@ export default function App() {
     const savedName = getUserProfile();
     if (savedName) {
       setUserName(savedName);
-      loadData(savedName);
     } else {
       setIsProfileModalOpen(true);
     }
+
+    loadData();
   }, []);
 
-  const loadData = async (user = userName) => {
-    const loaded = await fetchExpenses(user);
+  const loadData = async () => {
+    const loaded = await fetchExpenses();
     setExpenses(loaded || []);
   };
 
   const handleSaveProfile = (name) => {
     saveUserProfile(name);
     setUserName(name);
-    loadData(name);
   };
 
   // Clean Quick Presets
@@ -132,7 +131,7 @@ export default function App() {
       date,
       payment_method: 'UPI',
       is_fixed: false
-    }, userName);
+    });
 
     setExpenses(prev => [created, ...prev]);
     setTitle('');
@@ -147,8 +146,8 @@ export default function App() {
   };
 
   const handleClearHistory = async () => {
-    if (window.confirm(`Clear expenses history for ${userName || 'this profile'}?`)) {
-      await clearAllExpenses(userName);
+    if (window.confirm('Clear all your recorded expenses?')) {
+      await clearAllExpenses();
       setExpenses([]);
     }
   };
@@ -218,13 +217,13 @@ export default function App() {
   // CSV Export
   const handleExportCSV = () => {
     if (expenses.length === 0) return;
-    const headers = ['Date', 'Title', 'Amount', 'Category', 'User'];
-    const rows = expenses.map(e => [e.date, `"${e.title}"`, e.amount, `"${e.category}"`, `"${e.user_name || userName}"`]);
+    const headers = ['Date', 'Title', 'Amount', 'Category'];
+    const rows = expenses.map(e => [e.date, `"${e.title}"`, e.amount, `"${e.category}"`]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Expenso_${userName || 'Expenses'}_${todayStr}.csv`);
+    link.setAttribute('download', `Expenso_${userName || 'My_Expenses'}_${todayStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -237,7 +236,7 @@ export default function App() {
       <header className="top-header">
         <h1 className="app-title">Expenso</h1>
         
-        {/* User Profile Switcher Badge */}
+        {/* Name Personalization Badge */}
         <button 
           onClick={() => setIsProfileModalOpen(true)}
           className="date-pill"
@@ -467,7 +466,7 @@ export default function App() {
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '1rem 0 1.25rem' }}>
             <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {userName ? `${userName}'s Reports` : 'Reports & Analytics'}
+              Reports & Analytics
             </h2>
             
             {/* CSV Backup */}
@@ -607,7 +606,7 @@ export default function App() {
         </button>
       </nav>
 
-      {/* User Profile Personalization Modal */}
+      {/* Name Personalization Modal */}
       <UserProfileModal 
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}

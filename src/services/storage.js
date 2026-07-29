@@ -1,13 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
 
 const STORAGE_KEYS = {
-  EXPENSES: 'expenso_items_v2',
-  USER_PROFILE: 'expenso_active_user_v2',
+  EXPENSES: 'expenso_items_v3',
+  USER_PROFILE: 'expenso_user_name_v3',
+  DEVICE_ID: 'expenso_device_id_v3',
   SUPABASE_CONFIG: 'expenso_supabase_cfg',
   CUSTOM_CATEGORIES: 'expenso_custom_cats_v1'
 };
 
 let supabaseClientInstance = null;
+
+// Generate or retrieve permanent unique Device ID
+export function getDeviceId() {
+  let devId = localStorage.getItem(STORAGE_KEYS.DEVICE_ID);
+  if (!devId) {
+    devId = 'dev_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+    localStorage.setItem(STORAGE_KEYS.DEVICE_ID, devId);
+  }
+  return devId;
+}
 
 export function getSupabaseClient() {
   if (supabaseClientInstance) return supabaseClientInstance;
@@ -35,7 +46,7 @@ export function getSupabaseConfig() {
   };
 }
 
-// User Profile Storage
+// User Profile Name Storage
 export function getUserProfile() {
   return localStorage.getItem(STORAGE_KEYS.USER_PROFILE) || '';
 }
@@ -61,23 +72,26 @@ export function saveCustomCategory(categoryObj) {
   return updated;
 }
 
-// Expense CRUD operations (Multi-User Filtered Storage)
-export async function fetchExpenses(userName = '') {
-  const allLocal = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
-  const activeUser = userName || getUserProfile();
+// Expense CRUD operations (Strict Device Isolation - Zero Cross-User Visibility)
+export async function fetchExpenses() {
+  const devId = getDeviceId();
+  const localSaved = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
+  
+  // Filter local storage items strictly by device_id
+  const localFiltered = localSaved.filter(i => !i.device_id || i.device_id === devId);
 
   const client = getSupabaseClient();
   if (client) {
     try {
-      let query = client.from('expenses').select('*').order('date', { ascending: false });
-      
-      if (activeUser) {
-        query = query.eq('user_name', activeUser);
-      }
-
-      const { data, error } = await query;
+      // Query database strictly by device_id so nobody can ever see anyone else's data!
+      const { data, error } = await client
+        .from('expenses')
+        .select('*')
+        .eq('device_id', devId)
+        .order('date', { ascending: false });
 
       if (!error && Array.isArray(data) && data.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
         return data;
       }
     } catch (e) {
@@ -85,16 +99,12 @@ export async function fetchExpenses(userName = '') {
     }
   }
 
-  // Filter local storage items by active user name
-  if (activeUser) {
-    return allLocal.filter(item => !item.user_name || item.user_name === activeUser);
-  }
-
-  return allLocal;
+  return localFiltered;
 }
 
-export async function addExpense(item, userName = '') {
-  const activeUser = userName || getUserProfile() || 'Default';
+export async function addExpense(item) {
+  const devId = getDeviceId();
+  const userName = getUserProfile() || 'User';
   
   const newItem = {
     id: item.id || 'exp_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
@@ -105,7 +115,8 @@ export async function addExpense(item, userName = '') {
     payment_method: item.payment_method || 'UPI',
     notes: item.notes || '',
     is_fixed: Boolean(item.is_fixed),
-    user_name: activeUser,
+    user_name: userName,
+    device_id: devId,
     created_at: new Date().toISOString()
   };
 
@@ -125,37 +136,8 @@ export async function addExpense(item, userName = '') {
   return newItem;
 }
 
-export async function addMultipleExpenses(items, userName = '') {
-  const activeUser = userName || getUserProfile() || 'Default';
-
-  const preparedItems = items.map(item => ({
-    id: item.id || 'exp_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
-    title: item.title,
-    amount: Number(item.amount),
-    category: item.category,
-    date: item.date,
-    payment_method: item.payment_method || 'UPI',
-    notes: item.notes || '',
-    is_fixed: Boolean(item.is_fixed),
-    user_name: activeUser,
-    created_at: new Date().toISOString()
-  }));
-
-  const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
-  const updated = [...preparedItems, ...current];
-  localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
-
-  const client = getSupabaseClient();
-  if (client) {
-    try {
-      await client.from('expenses').insert(preparedItems);
-    } catch (e) {}
-  }
-
-  return updated;
-}
-
 export async function deleteExpense(id) {
+  const devId = getDeviceId();
   const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
   const updated = current.filter(item => item.id !== id);
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
@@ -163,28 +145,23 @@ export async function deleteExpense(id) {
   const client = getSupabaseClient();
   if (client) {
     try {
-      await client.from('expenses').delete().eq('id', id);
+      await client.from('expenses').delete().eq('id', id).eq('device_id', devId);
     } catch (e) {}
   }
 
   return updated;
 }
 
-export async function clearAllExpenses(userName = '') {
-  const activeUser = userName || getUserProfile();
+export async function clearAllExpenses() {
+  const devId = getDeviceId();
   const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
-  
-  const filtered = activeUser ? current.filter(i => i.user_name && i.user_name !== activeUser) : [];
+  const filtered = current.filter(i => i.device_id && i.device_id !== devId);
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(filtered));
 
   const client = getSupabaseClient();
   if (client) {
     try {
-      if (activeUser) {
-        await client.from('expenses').delete().eq('user_name', activeUser);
-      } else {
-        await client.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      }
+      await client.from('expenses').delete().eq('device_id', devId);
     } catch (e) {}
   }
 }
