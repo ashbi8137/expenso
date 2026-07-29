@@ -219,19 +219,23 @@ export default function App() {
 
   const dateTotalsMap = {};
 
-  expenses.forEach(item => {
+  (expenses || []).forEach(item => {
+    if (!item || typeof item !== 'object') return;
     const amt = Number(item.amount) || 0;
     grandTotal += amt;
     if (item.date === todayStr) todayTotal += amt;
     if (item.date === yesterdayStr) yesterdayTotal += amt;
 
-    if (item.is_fixed || ['Housing & Rent', 'Fitness & Health'].includes(item.category)) {
+    const catName = item.category || 'Other';
+    if (item.is_fixed || ['Housing & Rent', 'Fitness & Health'].includes(catName)) {
       fixedTotal += amt;
     } else {
       routineTotal += amt;
     }
 
-    dateTotalsMap[item.date] = (dateTotalsMap[item.date] || 0) + amt;
+    if (item.date && typeof item.date === 'string') {
+      dateTotalsMap[item.date] = (dateTotalsMap[item.date] || 0) + amt;
+    }
   });
 
   const activeDaysCount = Math.max(1, Object.keys(dateTotalsMap).length);
