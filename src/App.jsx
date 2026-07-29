@@ -30,22 +30,22 @@ import {
   clearAllExpenses,
   getStoredCategories,
   saveCustomCategory,
-  getUserProfile,
-  saveUserProfile
+  getLockedUser,
+  saveLockedUser
 } from './services/storage';
 
 import { AddCategoryModal } from './components/AddCategoryModal';
-import { UserProfileModal } from './components/UserProfileModal';
+import { WelcomeSetupScreen } from './components/WelcomeSetupScreen';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home'); // home, add, stats
   const [userName, setUserName] = useState('');
+  const [isSetupDone, setIsSetupDone] = useState(false);
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState(CATEGORY_DEFINITIONS);
 
   // Modals
   const [isAddCatModalOpen, setIsAddCatModalOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Form State
   const todayStr = new Date().toISOString().split('T')[0];
@@ -64,14 +64,12 @@ export default function App() {
       setCategories([...CATEGORY_DEFINITIONS, ...customCats]);
     }
 
-    const savedName = getUserProfile();
+    const savedName = getLockedUser();
     if (savedName) {
       setUserName(savedName);
-    } else {
-      setIsProfileModalOpen(true);
+      setIsSetupDone(true);
+      loadData();
     }
-
-    loadData();
   }, []);
 
   const loadData = async () => {
@@ -79,9 +77,11 @@ export default function App() {
     setExpenses(loaded || []);
   };
 
-  const handleSaveProfile = (name) => {
-    saveUserProfile(name);
-    setUserName(name);
+  const handleSetupComplete = (name) => {
+    const saved = saveLockedUser(name);
+    setUserName(saved);
+    setIsSetupDone(true);
+    loadData();
   };
 
   // Clean Quick Presets
@@ -133,7 +133,9 @@ export default function App() {
       is_fixed: false
     });
 
-    setExpenses(prev => [created, ...prev]);
+    if (created) {
+      setExpenses(prev => [created, ...prev]);
+    }
     setTitle('');
     setAmount('');
     setFormError('');
@@ -146,7 +148,7 @@ export default function App() {
   };
 
   const handleClearHistory = async () => {
-    if (window.confirm('Clear all your recorded expenses?')) {
+    if (window.confirm(`Clear all expense history for ${userName}?`)) {
       await clearAllExpenses();
       setExpenses([]);
     }
@@ -178,6 +180,11 @@ export default function App() {
       default: return '#F1F5F9';
     }
   };
+
+  // If user profile is not set, render 1-time full screen setup page
+  if (!isSetupDone) {
+    return <WelcomeSetupScreen onComplete={handleSetupComplete} />;
+  }
 
   // Calculations
   const yesterdayObj = new Date();
@@ -223,7 +230,7 @@ export default function App() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Expenso_${userName || 'My_Expenses'}_${todayStr}.csv`);
+    link.setAttribute('download', `Expenso_${userName}_${todayStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -236,15 +243,14 @@ export default function App() {
       <header className="top-header">
         <h1 className="app-title">Expenso</h1>
         
-        {/* Name Personalization Badge */}
-        <button 
-          onClick={() => setIsProfileModalOpen(true)}
+        {/* Permanent Locked User Badge (Non-clickable) */}
+        <div 
           className="date-pill"
-          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #10B981', background: '#ECFDF5', color: '#047857' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #10B981', background: '#ECFDF5', color: '#047857' }}
         >
           <User size={14} />
-          <span>{userName ? userName : 'Set Name'}</span>
-        </button>
+          <span>{userName}</span>
+        </div>
       </header>
 
       {/* TAB 1: HOME */}
@@ -255,7 +261,7 @@ export default function App() {
           <div className="today-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div className="today-label">
-                {userName ? `Hello, ${userName} 👋` : "Today's Total Spend"}
+                Hello, {userName} 👋
               </div>
               <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 600 }}>
                 {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -605,14 +611,6 @@ export default function App() {
           <span>Stats</span>
         </button>
       </nav>
-
-      {/* Name Personalization Modal */}
-      <UserProfileModal 
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        currentName={userName}
-        onSaveName={handleSaveProfile}
-      />
 
       {/* Custom Category Modal */}
       <AddCategoryModal 
