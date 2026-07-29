@@ -1,24 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
 const STORAGE_KEYS = {
-  EXPENSES: 'paisaevide_expenses_v6',
-  LOCKED_USER: 'paisaevide_user_v6',
-  DEVICE_ID: 'paisaevide_device_secret_v6',
+  EXPENSES: 'paisaevide_expenses_v7',
+  LOCKED_USER: 'paisaevide_user_v7',
   SUPABASE_CONFIG: 'expenso_supabase_cfg',
   CUSTOM_CATEGORIES: 'expenso_custom_cats_v1'
 };
 
 let supabaseClientInstance = null;
-
-// Unique secret Device ID generated per phone/device
-export function getDeviceId() {
-  let devId = localStorage.getItem(STORAGE_KEYS.DEVICE_ID);
-  if (!devId) {
-    devId = 'dev_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-    localStorage.setItem(STORAGE_KEYS.DEVICE_ID, devId);
-  }
-  return devId;
-}
 
 export function getSupabaseClient() {
   if (supabaseClientInstance) return supabaseClientInstance;
@@ -74,33 +63,21 @@ export function saveCustomCategory(categoryObj) {
   return updated;
 }
 
-// Expense CRUD operations (Bulletproof Dual Device-ID + User-Name Isolation)
+// Expense CRUD operations (Exact Match for Supabase Schema: id, created_at, date, title, amount, category)
 export async function fetchExpenses() {
-  const devId = getDeviceId();
-  const activeUser = getLockedUser();
-  
   const localSaved = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
-  const localFiltered = localSaved.filter(i => i.device_id === devId || i.user_name === activeUser);
-
   const client = getSupabaseClient();
+
   if (client) {
     try {
-      // Query strictly by device_id or (user_name AND device_id) so nobody on another phone can EVER see your data!
-      let query = client.from('expenses').select('*').order('date', { ascending: false });
-      
-      if (devId) {
-        query = query.eq('device_id', devId);
-      } else if (activeUser) {
-        query = query.eq('user_name', activeUser);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await client
+        .from('expenses')
+        .select('*')
+        .order('date', { ascending: false });
 
       if (!error && Array.isArray(data)) {
-        if (data.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
-          return data;
-        }
+        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
+        return data;
       } else if (error) {
         console.warn("Supabase fetch notice:", error.message);
       }
@@ -109,13 +86,10 @@ export async function fetchExpenses() {
     }
   }
 
-  return localFiltered;
+  return localSaved;
 }
 
 export async function addExpense(item) {
-  const devId = getDeviceId();
-  const activeUser = getLockedUser() || 'User';
-
   const newItem = {
     id: item.id || 'exp_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
     title: item.title,
@@ -125,8 +99,6 @@ export async function addExpense(item) {
     payment_method: item.payment_method || 'UPI',
     notes: item.notes || '',
     is_fixed: Boolean(item.is_fixed),
-    user_name: activeUser,
-    device_id: devId,
     created_at: new Date().toISOString()
   };
 
@@ -135,20 +107,25 @@ export async function addExpense(item) {
   const updated = [newItem, ...current];
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
 
-  // 2. Cloud DB Insertion to Supabase
+  // 2. Cloud DB Insertion to Supabase matching exact table schema
   const client = getSupabaseClient();
   if (client) {
     try {
-      const { error } = await client.from('expenses').insert([newItem]);
+      const dbPayload = {
+        id: newItem.id,
+        created_at: newItem.created_at,
+        date: newItem.date,
+        title: newItem.title,
+        amount: Number(newItem.amount),
+        category: newItem.category
+      };
+
+      const { error } = await client.from('expenses').insert([dbPayload]);
       if (error) {
-        console.warn("Supabase Cloud Insert Warning:", error.message);
-        // Fallback retry without device_id or user_name if columns are missing
-        const fallbackPayload = { ...newItem };
-        delete fallbackPayload.device_id;
-        await client.from('expenses').insert([fallbackPayload]);
+        console.error("Supabase Cloud Insert Warning:", error.message);
       }
     } catch (e) {
-      console.warn("Supabase Cloud Insert Error:", e);
+      console.error("Supabase Cloud Insert Error:", e);
     }
   }
 
@@ -156,7 +133,6 @@ export async function addExpense(item) {
 }
 
 export async function deleteExpense(id) {
-  const devId = getDeviceId();
   const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
   const updated = current.filter(item => item.id !== id);
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
@@ -164,7 +140,7 @@ export async function deleteExpense(id) {
   const client = getSupabaseClient();
   if (client) {
     try {
-      await client.from('expenses').delete().eq('id', id).eq('device_id', devId);
+      await client.from('expenses').delete().eq('id', id);
     } catch (e) {}
   }
 
@@ -172,13 +148,16 @@ export async function deleteExpense(id) {
 }
 
 export async function clearAllExpenses() {
-  const devId = getDeviceId();
   localStorage.removeItem(STORAGE_KEYS.EXPENSES);
 
   const client = getSupabaseClient();
   if (client) {
     try {
-      await client.from('expenses').delete().eq('device_id', devId);
-    } catch (e) {}
+      await client.from('expenses').delete().gte('amount', 0);
+    } catch (e) {
+      try {
+        await client.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      } catch (e2) {}
+    }
   }
 }
