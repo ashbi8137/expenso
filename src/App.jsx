@@ -20,7 +20,10 @@ import {
   Calendar,
   Sparkles,
   User,
-  Receipt
+  Receipt,
+  Filter,
+  SlidersHorizontal,
+  X
 } from 'lucide-react';
 
 import { CATEGORY_DEFINITIONS, autoDetectCategory } from './utils/parser';
@@ -37,6 +40,7 @@ import {
 
 import { AddCategoryModal } from './components/AddCategoryModal';
 import { WelcomeSetupScreen } from './components/WelcomeSetupScreen';
+import { DateFilterModal } from './components/DateFilterModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home'); // home, add, stats
@@ -47,6 +51,7 @@ export default function App() {
 
   // Modals
   const [isAddCatModalOpen, setIsAddCatModalOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   // Form State
   const todayStr = new Date().toISOString().split('T')[0];
@@ -56,8 +61,12 @@ export default function App() {
   const [date, setDate] = useState(todayStr);
   const [formError, setFormError] = useState('');
 
-  // Stats Filter State
-  const [statsFilter, setStatsFilter] = useState('ALL');
+  // Custom Date Filter State
+  const [dateFilter, setDateFilter] = useState({
+    mode: 'PRESET',
+    preset: 'ALL',
+    label: 'All Time'
+  });
 
   useEffect(() => {
     const customCats = getStoredCategories();
@@ -235,6 +244,37 @@ export default function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Filter Matching Helper Function
+  const isItemInFilter = (item) => {
+    if (!item.date) return false;
+    
+    if (dateFilter.mode === 'DATE_RANGE') {
+      return item.date >= dateFilter.fromDate && item.date <= dateFilter.toDate;
+    }
+
+    if (dateFilter.mode === 'MONTH_RANGE') {
+      const itemMonth = item.date.substring(0, 7);
+      return itemMonth >= dateFilter.fromMonth && itemMonth <= dateFilter.toMonth;
+    }
+
+    if (dateFilter.mode === 'PRESET') {
+      if (dateFilter.preset === 'TODAY') return item.date === todayStr;
+      if (dateFilter.preset === 'YESTERDAY') return item.date === yesterdayStr;
+      
+      const now = new Date();
+      const itemDate = new Date(item.date + 'T00:00:00');
+      const diffTime = now - itemDate;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (dateFilter.preset === 'LAST_10_DAYS') return diffDays >= 0 && diffDays < 10;
+      if (dateFilter.preset === 'LAST_2_WEEKS') return diffDays >= 0 && diffDays < 14;
+      if (dateFilter.preset === 'LAST_2_MONTHS') return diffDays >= 0 && diffDays < 60;
+      if (dateFilter.preset === 'LAST_4_MONTHS') return diffDays >= 0 && diffDays < 120;
+    }
+
+    return true; // ALL
   };
 
   return (
@@ -515,56 +555,58 @@ export default function App() {
 
           </div>
 
-          {/* Filter Pills */}
-          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
-            {[
-              { id: 'ALL', label: 'All Time' },
-              { id: 'TODAY', label: 'Today' },
-              { id: 'YESTERDAY', label: 'Yesterday' },
-              { id: 'WEEK', label: 'This Week' },
-              { id: 'MONTH', label: 'This Month' }
-            ].map(t => (
+          {/* Single Sleek Filter Action Button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <button
+              type="button"
+              onClick={() => setIsFilterModalOpen(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.5rem 1rem',
+                borderRadius: '14px',
+                background: dateFilter.label !== 'All Time' ? '#10B981' : '#FFFFFF',
+                color: dateFilter.label !== 'All Time' ? '#FFFFFF' : 'var(--text-primary)',
+                border: dateFilter.label !== 'All Time' ? 'none' : '1px solid var(--border)',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+              }}
+            >
+              <SlidersHorizontal size={16} />
+              <span>Filter</span>
+              {dateFilter.label !== 'All Time' && <span style={{ opacity: 0.9 }}>: {dateFilter.label}</span>}
+            </button>
+
+            {dateFilter.label !== 'All Time' && (
               <button
-                key={t.id}
-                className="preset-button"
+                type="button"
+                onClick={() => setDateFilter({ mode: 'PRESET', preset: 'ALL', label: 'All Time' })}
                 style={{
-                  background: statsFilter === t.id ? '#10B981' : '#FFFFFF',
-                  color: statsFilter === t.id ? '#FFFFFF' : 'var(--text-primary)',
-                  borderColor: statsFilter === t.id ? '#10B981' : 'var(--border)',
-                  borderRadius: '9999px',
-                  padding: '0.35rem 0.8rem',
+                  background: '#F1F5F9',
+                  border: 'none',
+                  color: '#64748B',
                   fontSize: '0.775rem',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0
+                  fontWeight: 700,
+                  padding: '0.4rem 0.65rem',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem'
                 }}
-                onClick={() => setStatsFilter(t.id)}
               >
-                {t.label}
+                <X size={14} />
+                <span>Reset</span>
               </button>
-            ))}
+            )}
           </div>
 
           {/* Category Distribution Breakdown */}
           {(() => {
-            const filtered = expenses.filter(i => {
-              if (statsFilter === 'TODAY') return i.date === todayStr;
-              if (statsFilter === 'YESTERDAY') return i.date === yesterdayStr;
-
-              if (statsFilter === 'WEEK') {
-                const now = new Date();
-                const itemDate = new Date(i.date + 'T00:00:00');
-                const diffDays = Math.floor((now - itemDate) / (1000 * 60 * 60 * 24));
-                return diffDays >= 0 && diffDays < 7;
-              }
-
-              if (statsFilter === 'MONTH') {
-                const itemDate = new Date(i.date + 'T00:00:00');
-                const now = new Date();
-                return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
-              }
-
-              return true;
-            });
+            const filtered = expenses.filter(isItemInFilter);
 
             const catTotals = {};
             let sum = 0;
@@ -633,6 +675,15 @@ export default function App() {
           <span>Stats</span>
         </button>
       </nav>
+
+      {/* Date Filter Modal */}
+      <DateFilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        activeFilter={dateFilter}
+        onApplyFilter={setDateFilter}
+        todayStr={todayStr}
+      />
 
       {/* Custom Category Modal */}
       <AddCategoryModal 
