@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 const STORAGE_KEYS = {
-  EXPENSES: 'paisaevide_expenses_v8',
-  LOCKED_USER: 'paisaevide_user_v8',
-  DEVICE_ID: 'paisaevide_device_secret_v8',
+  EXPENSES: 'paisaevide_expenses_v9',
+  LOCKED_USER: 'paisaevide_user_v9',
+  DEVICE_ID: 'paisaevide_device_secret_v9',
   SUPABASE_CONFIG: 'expenso_supabase_cfg',
   CUSTOM_CATEGORIES: 'expenso_custom_cats_v1'
 };
@@ -73,7 +73,7 @@ export function saveCustomCategory(categoryObj) {
   return updated;
 }
 
-// Expense CRUD operations (Full Payload with user_name & device_id)
+// Expense CRUD operations (Clean Minimal Payload)
 export async function fetchExpenses() {
   const devId = getDeviceId();
   const activeUser = getLockedUser();
@@ -98,7 +98,6 @@ export async function fetchExpenses() {
           return data;
         }
       } else if (error) {
-        // Fallback fetch if device_id column does not exist yet
         const { data: fallbackData } = await client.from('expenses').select('*').order('date', { ascending: false });
         if (Array.isArray(fallbackData) && fallbackData.length > 0) {
           localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(fallbackData));
@@ -123,9 +122,6 @@ export async function addExpense(item) {
     amount: Number(item.amount),
     category: item.category,
     date: item.date,
-    payment_method: item.payment_method || 'UPI',
-    notes: item.notes || '',
-    is_fixed: Boolean(item.is_fixed),
     user_name: activeUser,
     device_id: devId,
     created_at: new Date().toISOString()
@@ -140,7 +136,6 @@ export async function addExpense(item) {
   const client = getSupabaseClient();
   if (client) {
     try {
-      // Primary payload containing user_name & device_id
       const fullPayload = {
         id: newItem.id,
         created_at: newItem.created_at,
@@ -155,8 +150,7 @@ export async function addExpense(item) {
       const { error } = await client.from('expenses').insert([fullPayload]);
       
       if (error) {
-        console.warn("Supabase Full Insert Notice (Add columns to SQL):", error.message);
-        // Fallback retry with basic columns if user_name or device_id columns aren't created yet in SQL
+        console.warn("Supabase Cloud Insert Notice:", error.message);
         const basicPayload = {
           id: newItem.id,
           created_at: newItem.created_at,
