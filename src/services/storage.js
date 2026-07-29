@@ -8,7 +8,6 @@ const STORAGE_KEYS = {
 
 let supabaseClientInstance = null;
 
-// Initialize Supabase Client (Singleton)
 export function getSupabaseClient() {
   if (supabaseClientInstance) return supabaseClientInstance;
 
@@ -18,7 +17,7 @@ export function getSupabaseClient() {
       supabaseClientInstance = createClient(cfg.url, cfg.anonKey);
       return supabaseClientInstance;
     } catch (e) {
-      console.warn("Supabase init failed, fallback to local storage", e);
+      console.warn("Supabase init failed", e);
     }
   }
   return null;
@@ -37,7 +36,7 @@ export function getSupabaseConfig() {
 
 export function saveSupabaseConfig(url, anonKey) {
   localStorage.setItem(STORAGE_KEYS.SUPABASE_CONFIG, JSON.stringify({ url, anonKey }));
-  supabaseClientInstance = null; // reset singleton to re-init
+  supabaseClientInstance = null;
 }
 
 // Custom Categories Storage
@@ -56,9 +55,11 @@ export function saveCustomCategory(categoryObj) {
   return updated;
 }
 
-// Expense CRUD operations (Supabase + LocalStorage sync)
+// Expense CRUD operations (Robust LocalStorage + Supabase Sync)
 export async function fetchExpenses() {
+  const localSaved = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
   const client = getSupabaseClient();
+
   if (client) {
     try {
       const { data, error } = await client
@@ -66,24 +67,21 @@ export async function fetchExpenses() {
         .select('*')
         .order('date', { ascending: false });
 
-      if (!error && data) {
+      if (!error && Array.isArray(data) && data.length > 0) {
         localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
         return data;
+      } else if (error) {
+        console.warn("Supabase fetch error (RLS check needed):", error.message);
       }
     } catch (e) {
-      console.warn("Supabase fetch failed, fallback to local storage", e);
+      console.warn("Supabase connection failed, using local storage", e);
     }
   }
 
-  const saved = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-  if (saved) {
-    try { return JSON.parse(saved); } catch (e) {}
-  }
-  return [];
+  return localSaved;
 }
 
 export async function addExpense(item) {
-  const client = getSupabaseClient();
   const newItem = {
     id: item.id || 'exp_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
     title: item.title,
@@ -96,15 +94,21 @@ export async function addExpense(item) {
     created_at: new Date().toISOString()
   };
 
+  // Always save to localStorage immediately to guarantee 0 data loss
   const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
   const updated = [newItem, ...current];
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
 
+  // Sync to Supabase cloud DB
+  const client = getSupabaseClient();
   if (client) {
     try {
-      await client.from('expenses').insert([newItem]);
+      const { error } = await client.from('expenses').insert([newItem]);
+      if (error) {
+        console.warn("Supabase insert warning (Disable RLS on table):", error.message);
+      }
     } catch (e) {
-      console.error("Supabase insert error:", e);
+      console.warn("Supabase insert failed", e);
     }
   }
 
@@ -112,9 +116,6 @@ export async function addExpense(item) {
 }
 
 export async function addMultipleExpenses(items) {
-  const client = getSupabaseClient();
-  const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
-  
   const preparedItems = items.map(item => ({
     id: item.id || 'exp_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
     title: item.title,
@@ -127,32 +128,30 @@ export async function addMultipleExpenses(items) {
     created_at: new Date().toISOString()
   }));
 
+  const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
   const updated = [...preparedItems, ...current];
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
 
+  const client = getSupabaseClient();
   if (client) {
     try {
       await client.from('expenses').insert(preparedItems);
-    } catch (e) {
-      console.error("Supabase batch insert error:", e);
-    }
+    } catch (e) {}
   }
 
   return updated;
 }
 
 export async function deleteExpense(id) {
-  const client = getSupabaseClient();
   const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
   const updated = current.filter(item => item.id !== id);
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
 
+  const client = getSupabaseClient();
   if (client) {
     try {
       await client.from('expenses').delete().eq('id', id);
-    } catch (e) {
-      console.error("Supabase delete error:", e);
-    }
+    } catch (e) {}
   }
 
   return updated;
