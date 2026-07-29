@@ -516,11 +516,13 @@ export default function App() {
           </div>
 
           {/* Filter Pills */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
             {[
               { id: 'ALL', label: 'All Time' },
               { id: 'TODAY', label: 'Today' },
-              { id: 'YESTERDAY', label: 'Yesterday' }
+              { id: 'YESTERDAY', label: 'Yesterday' },
+              { id: 'WEEK', label: 'This Week' },
+              { id: 'MONTH', label: 'This Month' }
             ].map(t => (
               <button
                 key={t.id}
@@ -530,7 +532,10 @@ export default function App() {
                   color: statsFilter === t.id ? '#FFFFFF' : 'var(--text-primary)',
                   borderColor: statsFilter === t.id ? '#10B981' : 'var(--border)',
                   borderRadius: '9999px',
-                  padding: '0.35rem 0.85rem'
+                  padding: '0.35rem 0.8rem',
+                  fontSize: '0.775rem',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
                 }}
                 onClick={() => setStatsFilter(t.id)}
               >
@@ -544,6 +549,20 @@ export default function App() {
             const filtered = expenses.filter(i => {
               if (statsFilter === 'TODAY') return i.date === todayStr;
               if (statsFilter === 'YESTERDAY') return i.date === yesterdayStr;
+
+              if (statsFilter === 'WEEK') {
+                const now = new Date();
+                const itemDate = new Date(i.date + 'T00:00:00');
+                const diffDays = Math.floor((now - itemDate) / (1000 * 60 * 60 * 24));
+                return diffDays >= 0 && diffDays < 7;
+              }
+
+              if (statsFilter === 'MONTH') {
+                const itemDate = new Date(i.date + 'T00:00:00');
+                const now = new Date();
+                return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
+              }
+
               return true;
             });
 
