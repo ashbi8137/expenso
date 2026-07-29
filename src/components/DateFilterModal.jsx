@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Filter, Calendar, X, Check, Clock } from 'lucide-react';
+import { Filter, X, Check } from 'lucide-react';
 
 export function DateFilterModal({ isOpen, onClose, activeFilter, onApplyFilter, todayStr }) {
-  const [mode, setMode] = useState(activeFilter.mode || 'PRESET'); // PRESET, DATE_RANGE, MONTH_RANGE
-  const [preset, setPreset] = useState(activeFilter.preset || 'ALL');
+  const [mode, setMode] = useState(activeFilter.mode === 'MONTH_RANGE' ? 'MONTH_RANGE' : 'DATE_RANGE');
   
   // Custom Date Range (Day wise)
   const [fromDate, setFromDate] = useState(activeFilter.fromDate || todayStr);
@@ -17,23 +16,11 @@ export function DateFilterModal({ isOpen, onClose, activeFilter, onApplyFilter, 
   if (!isOpen) return null;
 
   const handleApply = () => {
-    let label = 'All Time';
+    let label = '';
 
-    if (mode === 'PRESET') {
-      switch (preset) {
-        case 'TODAY': label = 'Today'; break;
-        case 'YESTERDAY': label = 'Yesterday'; break;
-        case 'LAST_10_DAYS': label = 'Last 10 Days'; break;
-        case 'LAST_2_WEEKS': label = 'Last 2 Weeks'; break;
-        case 'LAST_2_MONTHS': label = 'Last 2 Months'; break;
-        case 'LAST_4_MONTHS': label = 'Last 4 Months'; break;
-        default: label = 'All Time';
-      }
-      onApplyFilter({ mode: 'PRESET', preset, label });
-    } 
-    else if (mode === 'DATE_RANGE') {
+    if (mode === 'DATE_RANGE') {
       if (!fromDate || !toDate) return;
-      label = `${fromDate} to ${toDate}`;
+      label = fromDate === toDate ? `${fromDate}` : `${fromDate} to ${toDate}`;
       onApplyFilter({ mode: 'DATE_RANGE', fromDate, toDate, label });
     }
     else if (mode === 'MONTH_RANGE') {
@@ -46,7 +33,7 @@ export function DateFilterModal({ isOpen, onClose, activeFilter, onApplyFilter, 
   };
 
   const handleReset = () => {
-    onApplyFilter({ mode: 'PRESET', preset: 'ALL', label: 'All Time' });
+    onApplyFilter({ mode: 'PRESET', preset: 'TODAY', label: 'Today' });
     onClose();
   };
 
@@ -59,7 +46,7 @@ export function DateFilterModal({ isOpen, onClose, activeFilter, onApplyFilter, 
             <div style={{ width: '36px', height: '36px', borderRadius: '12px', background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Filter size={18} color="#10B981" />
             </div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>Filter Expenses</h2>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>Custom Date Filter</h2>
           </div>
           <button 
             type="button" 
@@ -70,25 +57,24 @@ export function DateFilterModal({ isOpen, onClose, activeFilter, onApplyFilter, 
           </button>
         </div>
 
-        {/* Mode Selector Tabs */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.35rem', background: '#F1F5F9', padding: '0.25rem', borderRadius: '14px', marginBottom: '1.25rem' }}>
+        {/* Mode Selector Tabs (Only 2 Tabs: Day Range & Month Range) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem', background: '#F1F5F9', padding: '0.25rem', borderRadius: '14px', marginBottom: '1.25rem' }}>
           {[
-            { id: 'PRESET', label: 'Quick' },
             { id: 'DATE_RANGE', label: 'Day Range' },
-            { id: 'MONTH_RANGE', label: 'Month Wise' }
+            { id: 'MONTH_RANGE', label: 'Month Range' }
           ].map(m => (
             <button
               key={m.id}
               type="button"
               onClick={() => setMode(m.id)}
               style={{
-                padding: '0.5rem 0.25rem',
+                padding: '0.6rem 0.25rem',
                 borderRadius: '10px',
                 border: 'none',
                 background: mode === m.id ? '#FFFFFF' : 'transparent',
                 color: mode === m.id ? '#10B981' : '#64748B',
                 fontWeight: mode === m.id ? 800 : 600,
-                fontSize: '0.8rem',
+                fontSize: '0.85rem',
                 cursor: 'pointer',
                 boxShadow: mode === m.id ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
                 transition: 'all 0.15s ease'
@@ -99,41 +85,7 @@ export function DateFilterModal({ isOpen, onClose, activeFilter, onApplyFilter, 
           ))}
         </div>
 
-        {/* Mode 1: Quick Presets */}
-        {mode === 'PRESET' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>
-            {[
-              { id: 'ALL', label: 'All Time' },
-              { id: 'TODAY', label: 'Today' },
-              { id: 'YESTERDAY', label: 'Yesterday' },
-              { id: 'LAST_10_DAYS', label: 'Last 10 Days' },
-              { id: 'LAST_2_WEEKS', label: 'Last 2 Weeks' },
-              { id: 'LAST_2_MONTHS', label: 'Last 2 Months' },
-              { id: 'LAST_4_MONTHS', label: 'Last 4 Months' }
-            ].map(p => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setPreset(p.id)}
-                style={{
-                  padding: '0.65rem 0.75rem',
-                  borderRadius: '12px',
-                  border: preset === p.id ? '2px solid #10B981' : '1px solid var(--border)',
-                  background: preset === p.id ? '#ECFDF5' : '#FFFFFF',
-                  color: preset === p.id ? '#047857' : 'var(--text-primary)',
-                  fontWeight: preset === p.id ? 800 : 600,
-                  fontSize: '0.825rem',
-                  textAlign: 'left',
-                  cursor: 'pointer'
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Mode 2: Day Wise (From Date -> To Date) */}
+        {/* Mode 1: Day Range (From Date -> To Date) */}
         {mode === 'DATE_RANGE' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
             <div className="clean-input-group" style={{ marginBottom: 0 }}>
@@ -159,7 +111,7 @@ export function DateFilterModal({ isOpen, onClose, activeFilter, onApplyFilter, 
           </div>
         )}
 
-        {/* Mode 3: Month Wise (From Month -> To Month) */}
+        {/* Mode 2: Month Range (From Month -> To Month) */}
         {mode === 'MONTH_RANGE' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
             <div className="clean-input-group" style={{ marginBottom: 0 }}>

@@ -555,54 +555,82 @@ export default function App() {
 
           </div>
 
-          {/* Single Sleek Filter Action Button */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+          {/* 3 Action Buttons: Today, Yesterday, Filter */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => setDateFilter({ mode: 'PRESET', preset: 'TODAY', label: 'Today' })}
+              style={{
+                flex: 1,
+                padding: '0.5rem 0.75rem',
+                borderRadius: '14px',
+                background: dateFilter.preset === 'TODAY' && dateFilter.mode === 'PRESET' ? '#10B981' : '#FFFFFF',
+                color: dateFilter.preset === 'TODAY' && dateFilter.mode === 'PRESET' ? '#FFFFFF' : 'var(--text-primary)',
+                border: dateFilter.preset === 'TODAY' && dateFilter.mode === 'PRESET' ? 'none' : '1px solid var(--border)',
+                fontWeight: 800,
+                fontSize: '0.825rem',
+                cursor: 'pointer',
+                textAlign: 'center'
+              }}
+            >
+              Today
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDateFilter({ mode: 'PRESET', preset: 'YESTERDAY', label: 'Yesterday' })}
+              style={{
+                flex: 1,
+                padding: '0.5rem 0.75rem',
+                borderRadius: '14px',
+                background: dateFilter.preset === 'YESTERDAY' && dateFilter.mode === 'PRESET' ? '#10B981' : '#FFFFFF',
+                color: dateFilter.preset === 'YESTERDAY' && dateFilter.mode === 'PRESET' ? '#FFFFFF' : 'var(--text-primary)',
+                border: dateFilter.preset === 'YESTERDAY' && dateFilter.mode === 'PRESET' ? 'none' : '1px solid var(--border)',
+                fontWeight: 800,
+                fontSize: '0.825rem',
+                cursor: 'pointer',
+                textAlign: 'center'
+              }}
+            >
+              Yesterday
+            </button>
+
             <button
               type="button"
               onClick={() => setIsFilterModalOpen(true)}
               style={{
+                flex: 1.2,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.4rem',
-                padding: '0.5rem 1rem',
+                justifyContent: 'center',
+                gap: '0.35rem',
+                padding: '0.5rem 0.75rem',
                 borderRadius: '14px',
-                background: dateFilter.label !== 'All Time' ? '#10B981' : '#FFFFFF',
-                color: dateFilter.label !== 'All Time' ? '#FFFFFF' : 'var(--text-primary)',
-                border: dateFilter.label !== 'All Time' ? 'none' : '1px solid var(--border)',
+                background: ['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) ? '#10B981' : '#FFFFFF',
+                color: ['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) ? '#FFFFFF' : 'var(--text-primary)',
+                border: ['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) ? 'none' : '1px solid var(--border)',
                 fontWeight: 800,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                fontSize: '0.825rem',
+                cursor: 'pointer'
               }}
             >
-              <SlidersHorizontal size={16} />
+              <SlidersHorizontal size={15} />
               <span>Filter</span>
-              {dateFilter.label !== 'All Time' && <span style={{ opacity: 0.9 }}>: {dateFilter.label}</span>}
             </button>
+          </div>
 
-            {dateFilter.label !== 'All Time' && (
-              <button
-                type="button"
-                onClick={() => setDateFilter({ mode: 'PRESET', preset: 'ALL', label: 'All Time' })}
-                style={{
-                  background: '#F1F5F9',
-                  border: 'none',
-                  color: '#64748B',
-                  fontSize: '0.775rem',
-                  fontWeight: 700,
-                  padding: '0.4rem 0.65rem',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.25rem'
-                }}
+          {/* Active Filter Label Badge if Custom Range Selected */}
+          {['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#047857', padding: '0.5rem 0.85rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 700, marginBottom: '1rem' }}>
+              <span>Filter: {dateFilter.label}</span>
+              <button 
+                onClick={() => setDateFilter({ mode: 'PRESET', preset: 'TODAY', label: 'Today' })}
+                style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
               >
                 <X size={14} />
-                <span>Reset</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Category Distribution Breakdown */}
           {(() => {
