@@ -74,11 +74,17 @@ export default function App() {
       setCategories([...CATEGORY_DEFINITIONS, ...customCats]);
     }
 
+    const isPurged = localStorage.getItem('paisaevide_fresh_start_v5');
+    if (!isPurged) {
+      clearAllExpenses();
+      localStorage.setItem('paisaevide_fresh_start_v5', 'true');
+    }
+
     const savedName = getLockedUser();
     if (savedName) {
       setUserName(savedName);
       setIsSetupDone(true);
-      loadData();
+      if (isPurged) loadData();
     }
   }, []);
 

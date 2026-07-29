@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 const STORAGE_KEYS = {
-  EXPENSES: 'expenso_items_v4',
-  LOCKED_USER: 'expenso_locked_user_v4',
+  EXPENSES: 'paisaevide_expenses_v5',
+  LOCKED_USER: 'paisaevide_user_v5',
   SUPABASE_CONFIG: 'expenso_supabase_cfg',
   CUSTOM_CATEGORIES: 'expenso_custom_cats_v1'
 };
@@ -63,7 +63,7 @@ export function saveCustomCategory(categoryObj) {
   return updated;
 }
 
-// Expense CRUD operations (Robust LocalStorage + Supabase Cloud Sync)
+// Expense CRUD operations (Fresh Clean Slate)
 export async function fetchExpenses() {
   const activeUser = getLockedUser();
   const localSaved = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
@@ -80,15 +80,11 @@ export async function fetchExpenses() {
       const { data, error } = await query;
 
       if (!error && Array.isArray(data)) {
-        if (data.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
-          return data;
-        }
-      } else if (error) {
-        console.warn("Supabase fetch notice:", error.message);
+        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
+        return data;
       }
     } catch (e) {
-      console.warn("Supabase connection notice", e);
+      console.warn("Supabase fetch notice", e);
     }
   }
 
@@ -123,7 +119,6 @@ export async function addExpense(item) {
       const { error } = await client.from('expenses').insert([newItem]);
       if (error) {
         console.warn("Supabase Cloud Insert Warning:", error.message);
-        // Fallback retry without user_name if user_name column missing in table
         if (error.message.includes('user_name')) {
           const fallbackPayload = { ...newItem };
           delete fallbackPayload.user_name;
@@ -154,19 +149,20 @@ export async function deleteExpense(id) {
 }
 
 export async function clearAllExpenses() {
-  const activeUser = getLockedUser();
-  const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
-  const filtered = activeUser ? current.filter(i => i.user_name && i.user_name !== activeUser) : [];
-  localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(filtered));
+  localStorage.removeItem(STORAGE_KEYS.EXPENSES);
+  localStorage.removeItem('expenso_items_v1');
+  localStorage.removeItem('expenso_items_v2');
+  localStorage.removeItem('expenso_items_v3');
+  localStorage.removeItem('expenso_items_v4');
 
   const client = getSupabaseClient();
   if (client) {
     try {
-      if (activeUser) {
-        await client.from('expenses').delete().eq('user_name', activeUser);
-      } else {
+      await client.from('expenses').delete().gte('amount', 0);
+    } catch (e) {
+      try {
         await client.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      }
-    } catch (e) {}
+      } catch (e2) {}
+    }
   }
 }
