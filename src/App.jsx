@@ -251,16 +251,15 @@ export default function App() {
     if (!dateStr) return 'Unknown Date';
     const d = new Date(dateStr + 'T00:00:00');
     const day = isNaN(d.getTime()) ? '' : d.getDate();
-    const month = isNaN(d.getTime()) ? '' : d.toLocaleString('en-IN', { month: 'short' });
-    const year = isNaN(d.getTime()) ? '' : d.getFullYear().toString().slice(-2);
+    const month = isNaN(d.getTime()) ? '' : d.toLocaleString('en-IN', { month: 'long' });
 
     if (dateStr === todayStr) {
-      return `Today (${day} ${month} ${year})`;
+      return `Today (${day} ${month})`;
     }
     if (dateStr === yesterdayStr) {
-      return `Yesterday (${day} ${month} ${year})`;
+      return `Yesterday (${day} ${month})`;
     }
-    return `${day} ${month} ${year}`;
+    return `${day} ${month}`;
   };
 
   // Group expenses by date heading in reverse chronological order
