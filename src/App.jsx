@@ -19,7 +19,8 @@ import {
   BarChart3,
   Calendar,
   Sparkles,
-  User
+  User,
+  Receipt
 } from 'lucide-react';
 
 import { CATEGORY_DEFINITIONS, autoDetectCategory } from './utils/parser';
@@ -339,13 +340,15 @@ export default function App() {
             </div>
 
             {expenses.length === 0 ? (
-              <div style={{ background: '#FFFFFF', border: '1px solid var(--border)', borderRadius: '20px', padding: '2rem 1rem', textAlign: 'center' }}>
-                <Sparkles size={28} color="#10B981" style={{ marginBottom: '0.5rem' }} />
-                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  Welcome {userName}!
+              <div style={{ background: '#FFFFFF', border: '1px solid var(--border)', borderRadius: '20px', padding: '1.75rem 1rem', textAlign: 'center' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
+                  <Receipt size={22} color="#10B981" />
+                </div>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  No transactions yet
                 </h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                  Tap **+ Add Expense** below to log your first entry.
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                  Tap <span style={{ color: '#10B981', fontWeight: 700 }}>+ Add Expense</span> below to log an entry
                 </p>
               </div>
             ) : (
