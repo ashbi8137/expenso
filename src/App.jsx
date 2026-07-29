@@ -305,32 +305,41 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // Filter Matching Helper Function
+  // Filter Matching Helper Function (100% Crash-Proof)
   const isItemInFilter = (item) => {
-    if (!item.date) return false;
+    if (!item || !item.date || typeof item.date !== 'string') return false;
     
     if (dateFilter.mode === 'DATE_RANGE') {
-      return item.date >= dateFilter.fromDate && item.date <= dateFilter.toDate;
+      const from = dateFilter.fromDate || '';
+      const to = dateFilter.toDate || '';
+      return item.date >= from && item.date <= to;
     }
 
     if (dateFilter.mode === 'MONTH_RANGE') {
-      const itemMonth = item.date.substring(0, 7);
-      return itemMonth >= dateFilter.fromMonth && itemMonth <= dateFilter.toMonth;
+      const itemMonth = item.date.length >= 7 ? item.date.substring(0, 7) : item.date;
+      const fromM = dateFilter.fromMonth || '';
+      const toM = dateFilter.toMonth || '';
+      return itemMonth >= fromM && itemMonth <= toM;
     }
 
     if (dateFilter.mode === 'PRESET') {
       if (dateFilter.preset === 'TODAY') return item.date === todayStr;
       if (dateFilter.preset === 'YESTERDAY') return item.date === yesterdayStr;
       
-      const now = new Date();
-      const itemDate = new Date(item.date + 'T00:00:00');
-      const diffTime = now - itemDate;
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const parts = item.date.split('-');
+      if (parts.length === 3) {
+        const itemY = parseInt(parts[0], 10);
+        const itemM = parseInt(parts[1], 10) - 1;
+        const itemD = parseInt(parts[2], 10);
+        const itemObj = new Date(itemY, itemM, itemD);
+        const nowObj = new Date();
+        const diffDays = Math.floor((nowObj - itemObj) / (1000 * 60 * 60 * 24));
 
-      if (dateFilter.preset === 'LAST_10_DAYS') return diffDays >= 0 && diffDays < 10;
-      if (dateFilter.preset === 'LAST_2_WEEKS') return diffDays >= 0 && diffDays < 14;
-      if (dateFilter.preset === 'LAST_2_MONTHS') return diffDays >= 0 && diffDays < 60;
-      if (dateFilter.preset === 'LAST_4_MONTHS') return diffDays >= 0 && diffDays < 120;
+        if (dateFilter.preset === 'LAST_10_DAYS') return diffDays >= 0 && diffDays < 10;
+        if (dateFilter.preset === 'LAST_2_WEEKS') return diffDays >= 0 && diffDays < 14;
+        if (dateFilter.preset === 'LAST_2_MONTHS') return diffDays >= 0 && diffDays < 60;
+        if (dateFilter.preset === 'LAST_4_MONTHS') return diffDays >= 0 && diffDays < 120;
+      }
     }
 
     return true; // ALL
