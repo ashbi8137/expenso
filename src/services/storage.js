@@ -158,6 +158,24 @@ export async function addExpense(item) {
   return newItem;
 }
 
+export async function updateExpense(updatedItem) {
+  const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
+  const updatedList = current.map(item => item.id === updatedItem.id ? { ...item, ...updatedItem } : item);
+  localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updatedList));
+
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const payload = toCleanPayload(updatedItem);
+      await client.from('expenses').update(payload).eq('id', updatedItem.id);
+    } catch (e) {
+      console.error("Supabase update error:", e);
+    }
+  }
+
+  return updatedItem;
+}
+
 export async function deleteExpense(id) {
   const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
   const updated = current.filter(item => item.id !== id);

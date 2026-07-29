@@ -23,13 +23,15 @@ import {
   Receipt,
   Filter,
   SlidersHorizontal,
-  X
+  X,
+  Edit3
 } from 'lucide-react';
 
 import { CATEGORY_DEFINITIONS, autoDetectCategory } from './utils/parser';
 import { 
   fetchExpenses, 
   addExpense, 
+  updateExpense,
   deleteExpense,
   clearAllExpenses,
   getStoredCategories,
@@ -41,6 +43,7 @@ import {
 import { AddCategoryModal } from './components/AddCategoryModal';
 import { WelcomeSetupScreen } from './components/WelcomeSetupScreen';
 import { DateFilterModal } from './components/DateFilterModal';
+import { EditExpenseModal } from './components/EditExpenseModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home'); // home, add, stats
@@ -52,6 +55,7 @@ export default function App() {
   // Modals
   const [isAddCatModalOpen, setIsAddCatModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
 
   // Form State
   const todayStr = new Date().toISOString().split('T')[0];
@@ -170,6 +174,12 @@ export default function App() {
     }
   };
 
+  const handleSaveEditedExpense = async (updatedItem) => {
+    await updateExpense(updatedItem);
+    const fresh = await fetchExpenses();
+    setExpenses(fresh);
+  };
+
   // Icon & Background Helper
   const getCategoryIcon = (catName) => {
     switch (catName) {
@@ -236,6 +246,45 @@ export default function App() {
   const diffYesterday = todayTotal - yesterdayTotal;
   const isHigher = diffYesterday > 0;
   const absDiff = Math.abs(diffYesterday);
+
+  const formatDateGroupHeader = (dateStr) => {
+    if (!dateStr) return 'Unknown Date';
+    const d = new Date(dateStr + 'T00:00:00');
+    const day = isNaN(d.getTime()) ? '' : d.getDate();
+    const month = isNaN(d.getTime()) ? '' : d.toLocaleString('en-IN', { month: 'short' });
+    const year = isNaN(d.getTime()) ? '' : d.getFullYear().toString().slice(-2);
+
+    if (dateStr === todayStr) {
+      return `Today (${day} ${month} ${year})`;
+    }
+    if (dateStr === yesterdayStr) {
+      return `Yesterday (${day} ${month} ${year})`;
+    }
+    return `${day} ${month} ${year}`;
+  };
+
+  // Group expenses by date heading in reverse chronological order
+  const groupedExpenses = React.useMemo(() => {
+    const groups = {};
+    expenses.forEach(item => {
+      const dKey = item.date || todayStr;
+      if (!groups[dKey]) groups[dKey] = [];
+      groups[dKey].push(item);
+    });
+
+    const sortedDateKeys = Object.keys(groups).sort((a, b) => new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00'));
+
+    return sortedDateKeys.map(dateKey => {
+      const items = groups[dateKey].sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      const dayTotal = items.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+      return { dateKey, items, dayTotal };
+    });
+  }, [expenses, todayStr]);
 
   // CSV Export
   const handleExportCSV = () => {
@@ -398,26 +447,67 @@ export default function App() {
                 </p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {expenses.map(item => (
-                  <div key={item.id} className="item-row">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div className="item-icon" style={{ background: getCategoryBg(item.category) }}>
-                        {getCategoryIcon(item.category)}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{item.title}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
-                          {item.date} • {item.category}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
-                        ₹{item.amount}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {groupedExpenses.map(group => (
+                  <div key={group.dateKey}>
+                    
+                    {/* Date Divider Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.25rem', marginBottom: '0.4rem', borderBottom: '1px dashed #CBD5E1' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                        {formatDateGroupHeader(group.dateKey)}
+                      </span>
+                      <span style={{ fontSize: '0.775rem', fontWeight: 800, color: '#059669', background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '0.15rem 0.6rem', borderRadius: '10px' }}>
+                        ₹{group.dayTotal.toLocaleString('en-IN')}
                       </span>
                     </div>
+
+                    {/* Transaction Rows within this date */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                      {group.items.map(item => (
+                        <div key={item.id} className="item-row">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div className="item-icon" style={{ background: getCategoryBg(item.category) }}>
+                              {getCategoryIcon(item.category)}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{item.title}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                                {item.category}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                              ₹{item.amount.toLocaleString('en-IN')}
+                            </span>
+
+                            {/* Edit Expense Button */}
+                            <button
+                              type="button"
+                              onClick={() => setEditingExpense(item)}
+                              style={{
+                                background: '#F1F5F9',
+                                border: '1px solid #E2E8F0',
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                color: '#475569',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title="Edit Expense"
+                            >
+                              <Edit3 size={15} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
                   </div>
                 ))}
               </div>
@@ -724,6 +814,16 @@ export default function App() {
         isOpen={isAddCatModalOpen}
         onClose={() => setIsAddCatModalOpen(false)}
         onAddCategory={handleAddCategory}
+      />
+
+      {/* Edit Expense Modal */}
+      <EditExpenseModal
+        isOpen={Boolean(editingExpense)}
+        onClose={() => setEditingExpense(null)}
+        expense={editingExpense}
+        onSave={handleSaveEditedExpense}
+        categories={categories}
+        todayStr={todayStr}
       />
 
     </div>
