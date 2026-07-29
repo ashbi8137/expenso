@@ -103,7 +103,9 @@ export async function fetchExpenses() {
         });
 
         const merged = Array.from(itemMap.values()).sort((a, b) => {
-          return new Date(b.created_at || b.date) - new Date(a.created_at || a.date);
+          const dateA = a.created_at || a.date || '';
+          const dateB = b.created_at || b.date || '';
+          return dateB.localeCompare(dateA);
         });
 
         localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(merged));
