@@ -506,19 +506,6 @@ export default function App() {
 
           {/* Daily Transactions */}
           <div style={{ margin: '0 1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-              <span style={{ fontSize: '0.775rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Recent Transactions
-              </span>
-              {expenses.length > 0 && (
-                <button 
-                  onClick={handleClearHistory}
-                  style={{ background: 'none', border: 'none', color: '#64748B', fontSize: '0.725rem', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  Clear History
-                </button>
-              )}
-            </div>
 
             {expenses.length === 0 ? (
               <div style={{ background: '#FFFFFF', border: '1px solid var(--border)', borderRadius: '20px', padding: '1.75rem 1rem', textAlign: 'center' }}>
@@ -762,82 +749,30 @@ export default function App() {
 
           </div>
 
-          {/* 3 Action Buttons: Today, Yesterday, Filter */}
+          {/* 4 Action Buttons: Total, Today, Yesterday, Filter */}
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => setDateFilter({ mode: 'PRESET', preset: 'TODAY', label: 'Today' })}
-              style={{
-                flex: 1,
-                padding: '0.5rem 0.75rem',
-                borderRadius: '14px',
-                background: dateFilter.preset === 'TODAY' && dateFilter.mode === 'PRESET' ? '#10B981' : '#FFFFFF',
-                color: dateFilter.preset === 'TODAY' && dateFilter.mode === 'PRESET' ? '#FFFFFF' : 'var(--text-primary)',
-                border: dateFilter.preset === 'TODAY' && dateFilter.mode === 'PRESET' ? 'none' : '1px solid var(--border)',
-                fontWeight: 800,
-                fontSize: '0.825rem',
-                cursor: 'pointer',
-                textAlign: 'center'
-              }}
-            >
-              Today
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDateFilter({ mode: 'PRESET', preset: 'YESTERDAY', label: 'Yesterday' })}
-              style={{
-                flex: 1,
-                padding: '0.5rem 0.75rem',
-                borderRadius: '14px',
-                background: dateFilter.preset === 'YESTERDAY' && dateFilter.mode === 'PRESET' ? '#10B981' : '#FFFFFF',
-                color: dateFilter.preset === 'YESTERDAY' && dateFilter.mode === 'PRESET' ? '#FFFFFF' : 'var(--text-primary)',
-                border: dateFilter.preset === 'YESTERDAY' && dateFilter.mode === 'PRESET' ? 'none' : '1px solid var(--border)',
-                fontWeight: 800,
-                fontSize: '0.825rem',
-                cursor: 'pointer',
-                textAlign: 'center'
-              }}
-            >
-              Yesterday
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsFilterModalOpen(true)}
-              style={{
-                flex: 1.2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.35rem',
-                padding: '0.5rem 0.75rem',
-                borderRadius: '14px',
-                background: ['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) ? '#10B981' : '#FFFFFF',
-                color: ['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) ? '#FFFFFF' : 'var(--text-primary)',
-                border: ['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) ? 'none' : '1px solid var(--border)',
-                fontWeight: 800,
-                fontSize: '0.825rem',
-                cursor: 'pointer'
-              }}
-            >
-              <SlidersHorizontal size={15} />
-              <span>Filter</span>
-            </button>
+            {[
+              { key: 'ALL', label: 'Total', check: () => dateFilter.preset === 'ALL' && dateFilter.mode === 'PRESET', action: () => setDateFilter({ mode: 'PRESET', preset: 'ALL', label: 'All Time' }) },
+              { key: 'TODAY', label: 'Today', check: () => dateFilter.preset === 'TODAY' && dateFilter.mode === 'PRESET', action: () => setDateFilter({ mode: 'PRESET', preset: 'TODAY', label: 'Today' }) },
+              { key: 'YESTERDAY', label: 'Yesterday', check: () => dateFilter.preset === 'YESTERDAY' && dateFilter.mode === 'PRESET', action: () => setDateFilter({ mode: 'PRESET', preset: 'YESTERDAY', label: 'Yesterday' }) },
+            ].map(btn => {
+              const isActive = btn.check();
+              return (
+                <button key={btn.key} type="button" onClick={btn.action}
+                  style={{
+                    flex: 1, padding: '0.5rem 0.75rem', borderRadius: '14px',
+                    background: isActive ? '#10B981' : '#FFFFFF',
+                    color: isActive ? '#FFFFFF' : 'var(--text-primary)',
+                    border: isActive ? 'none' : '1px solid var(--border)',
+                    fontWeight: 800, fontSize: '0.825rem', cursor: 'pointer', textAlign: 'center'
+                  }}
+                >
+                  {btn.label}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Active Filter Label Badge if Custom Range Selected */}
-          {['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#047857', padding: '0.5rem 0.85rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 700, marginBottom: '1rem' }}>
-              <span>Filter: {dateFilter.label}</span>
-              <button 
-                onClick={() => setDateFilter({ mode: 'PRESET', preset: 'TODAY', label: 'Today' })}
-                style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
 
           {/* Category Distribution Breakdown */}
           {(() => {
@@ -879,6 +814,40 @@ export default function App() {
               </div>
             );
           })()}
+
+          {/* Filter Button - placed below category breakdown for easy access */}
+          <div style={{ marginTop: '1rem' }}>
+            <button
+              type="button"
+              onClick={() => setIsFilterModalOpen(true)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                padding: '0.65rem 1rem',
+                borderRadius: '14px',
+                background: ['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) ? '#10B981' : '#FFFFFF',
+                color: ['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) ? '#FFFFFF' : 'var(--text-primary)',
+                border: ['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) ? 'none' : '1px solid var(--border)',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                cursor: 'pointer'
+              }}
+            >
+              <SlidersHorizontal size={16} />
+              <span>{['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) ? `Filter: ${dateFilter.label}` : 'Custom Date Filter'}</span>
+              {['DATE_RANGE', 'MONTH_RANGE'].includes(dateFilter.mode) && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); setDateFilter({ mode: 'PRESET', preset: 'ALL', label: 'All Time' }); }}
+                  style={{ marginLeft: '0.3rem', display: 'flex', alignItems: 'center' }}
+                >
+                  <X size={14} />
+                </span>
+              )}
+            </button>
+          </div>
 
         </div>
       )}
