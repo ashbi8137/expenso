@@ -19,8 +19,8 @@ import {
   BarChart3,
   Calendar,
   Sparkles,
-  RefreshCw,
-  CheckCircle2
+  UserCheck,
+  User
 } from 'lucide-react';
 
 import { CATEGORY_DEFINITIONS, autoDetectCategory } from './utils/parser';
@@ -30,18 +30,23 @@ import {
   deleteExpense,
   clearAllExpenses,
   getStoredCategories,
-  saveCustomCategory 
+  saveCustomCategory,
+  getUserProfile,
+  saveUserProfile
 } from './services/storage';
 
 import { AddCategoryModal } from './components/AddCategoryModal';
+import { UserProfileModal } from './components/UserProfileModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home'); // home, add, stats
+  const [userName, setUserName] = useState('');
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState(CATEGORY_DEFINITIONS);
 
   // Modals
   const [isAddCatModalOpen, setIsAddCatModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Form State
   const todayStr = new Date().toISOString().split('T')[0];
@@ -59,12 +64,25 @@ export default function App() {
     if (customCats.length > 0) {
       setCategories([...CATEGORY_DEFINITIONS, ...customCats]);
     }
-    loadData();
+
+    const savedName = getUserProfile();
+    if (savedName) {
+      setUserName(savedName);
+      loadData(savedName);
+    } else {
+      setIsProfileModalOpen(true);
+    }
   }, []);
 
-  const loadData = async () => {
-    const loaded = await fetchExpenses();
+  const loadData = async (user = userName) => {
+    const loaded = await fetchExpenses(user);
     setExpenses(loaded || []);
+  };
+
+  const handleSaveProfile = (name) => {
+    saveUserProfile(name);
+    setUserName(name);
+    loadData(name);
   };
 
   // Clean Quick Presets
@@ -114,7 +132,7 @@ export default function App() {
       date,
       payment_method: 'UPI',
       is_fixed: false
-    });
+    }, userName);
 
     setExpenses(prev => [created, ...prev]);
     setTitle('');
@@ -129,8 +147,8 @@ export default function App() {
   };
 
   const handleClearHistory = async () => {
-    if (window.confirm("Start fresh? This will remove old test entries.")) {
-      await clearAllExpenses();
+    if (window.confirm(`Clear expenses history for ${userName || 'this profile'}?`)) {
+      await clearAllExpenses(userName);
       setExpenses([]);
     }
   };
@@ -200,13 +218,13 @@ export default function App() {
   // CSV Export
   const handleExportCSV = () => {
     if (expenses.length === 0) return;
-    const headers = ['Date', 'Title', 'Amount', 'Category'];
-    const rows = expenses.map(e => [e.date, `"${e.title}"`, e.amount, `"${e.category}"`]);
+    const headers = ['Date', 'Title', 'Amount', 'Category', 'User'];
+    const rows = expenses.map(e => [e.date, `"${e.title}"`, e.amount, `"${e.category}"`, `"${e.user_name || userName}"`]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Expenso_${todayStr}.csv`);
+    link.setAttribute('download', `Expenso_${userName || 'Expenses'}_${todayStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -218,9 +236,16 @@ export default function App() {
       {/* Top Header */}
       <header className="top-header">
         <h1 className="app-title">Expenso</h1>
-        <div className="date-pill">
-          {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </div>
+        
+        {/* User Profile Switcher Badge */}
+        <button 
+          onClick={() => setIsProfileModalOpen(true)}
+          className="date-pill"
+          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #10B981', background: '#ECFDF5', color: '#047857' }}
+        >
+          <User size={14} />
+          <span>{userName ? userName : 'Set Name'}</span>
+        </button>
       </header>
 
       {/* TAB 1: HOME */}
@@ -229,7 +254,15 @@ export default function App() {
           
           {/* Today Total Card */}
           <div className="today-card">
-            <div className="today-label">Today's Total Spend</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="today-label">
+                {userName ? `Hello, ${userName} 👋` : "Today's Total Spend"}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 600 }}>
+                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </div>
+            </div>
+
             <div className="today-amount">₹{todayTotal.toLocaleString('en-IN')}</div>
 
             {/* Yesterday Comparison Pill */}
@@ -295,7 +328,7 @@ export default function App() {
                   onClick={handleClearHistory}
                   style={{ background: 'none', border: 'none', color: '#64748B', fontSize: '0.725rem', fontWeight: 700, cursor: 'pointer' }}
                 >
-                  Clear All
+                  Clear History
                 </button>
               )}
             </div>
@@ -303,9 +336,11 @@ export default function App() {
             {expenses.length === 0 ? (
               <div style={{ background: '#FFFFFF', border: '1px solid var(--border)', borderRadius: '20px', padding: '2rem 1rem', textAlign: 'center' }}>
                 <Sparkles size={28} color="#10B981" style={{ marginBottom: '0.5rem' }} />
-                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>Ready for August 1st!</h3>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Welcome {userName}!
+                </h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                  Tap **+ Add Expense** below to log your daily entries.
+                  Tap **+ Add Expense** below to log your first entry.
                 </p>
               </div>
             ) : (
@@ -431,7 +466,9 @@ export default function App() {
         <div style={{ padding: '0 1.25rem' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '1rem 0 1.25rem' }}>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)' }}>Reports & Analytics</h2>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              {userName ? `${userName}'s Reports` : 'Reports & Analytics'}
+            </h2>
             
             {/* CSV Backup */}
             {expenses.length > 0 && (
@@ -569,6 +606,14 @@ export default function App() {
           <span>Stats</span>
         </button>
       </nav>
+
+      {/* User Profile Personalization Modal */}
+      <UserProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        currentName={userName}
+        onSaveName={handleSaveProfile}
+      />
 
       {/* Custom Category Modal */}
       <AddCategoryModal 

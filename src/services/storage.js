@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 const STORAGE_KEYS = {
-  EXPENSES: 'expenso_items_v1',
+  EXPENSES: 'expenso_items_v2',
+  USER_PROFILE: 'expenso_active_user_v2',
   SUPABASE_CONFIG: 'expenso_supabase_cfg',
   CUSTOM_CATEGORIES: 'expenso_custom_cats_v1'
 };
@@ -34,9 +35,14 @@ export function getSupabaseConfig() {
   };
 }
 
-export function saveSupabaseConfig(url, anonKey) {
-  localStorage.setItem(STORAGE_KEYS.SUPABASE_CONFIG, JSON.stringify({ url, anonKey }));
-  supabaseClientInstance = null;
+// User Profile Storage
+export function getUserProfile() {
+  return localStorage.getItem(STORAGE_KEYS.USER_PROFILE) || '';
+}
+
+export function saveUserProfile(name) {
+  localStorage.setItem(STORAGE_KEYS.USER_PROFILE, name);
+  return name;
 }
 
 // Custom Categories Storage
@@ -55,33 +61,41 @@ export function saveCustomCategory(categoryObj) {
   return updated;
 }
 
-// Expense CRUD operations (Robust LocalStorage + Supabase Sync)
-export async function fetchExpenses() {
-  const localSaved = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
-  const client = getSupabaseClient();
+// Expense CRUD operations (Multi-User Filtered Storage)
+export async function fetchExpenses(userName = '') {
+  const allLocal = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
+  const activeUser = userName || getUserProfile();
 
+  const client = getSupabaseClient();
   if (client) {
     try {
-      const { data, error } = await client
-        .from('expenses')
-        .select('*')
-        .order('date', { ascending: false });
+      let query = client.from('expenses').select('*').order('date', { ascending: false });
+      
+      if (activeUser) {
+        query = query.eq('user_name', activeUser);
+      }
+
+      const { data, error } = await query;
 
       if (!error && Array.isArray(data) && data.length > 0) {
-        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
         return data;
-      } else if (error) {
-        console.warn("Supabase fetch error (RLS check needed):", error.message);
       }
     } catch (e) {
-      console.warn("Supabase connection failed, using local storage", e);
+      console.warn("Supabase fetch warning", e);
     }
   }
 
-  return localSaved;
+  // Filter local storage items by active user name
+  if (activeUser) {
+    return allLocal.filter(item => !item.user_name || item.user_name === activeUser);
+  }
+
+  return allLocal;
 }
 
-export async function addExpense(item) {
+export async function addExpense(item, userName = '') {
+  const activeUser = userName || getUserProfile() || 'Default';
+  
   const newItem = {
     id: item.id || 'exp_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
     title: item.title,
@@ -91,31 +105,29 @@ export async function addExpense(item) {
     payment_method: item.payment_method || 'UPI',
     notes: item.notes || '',
     is_fixed: Boolean(item.is_fixed),
+    user_name: activeUser,
     created_at: new Date().toISOString()
   };
 
-  // Always save to localStorage immediately to guarantee 0 data loss
   const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
   const updated = [newItem, ...current];
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
 
-  // Sync to Supabase cloud DB
   const client = getSupabaseClient();
   if (client) {
     try {
-      const { error } = await client.from('expenses').insert([newItem]);
-      if (error) {
-        console.warn("Supabase insert warning (Disable RLS on table):", error.message);
-      }
+      await client.from('expenses').insert([newItem]);
     } catch (e) {
-      console.warn("Supabase insert failed", e);
+      console.warn("Supabase insert warning", e);
     }
   }
 
   return newItem;
 }
 
-export async function addMultipleExpenses(items) {
+export async function addMultipleExpenses(items, userName = '') {
+  const activeUser = userName || getUserProfile() || 'Default';
+
   const preparedItems = items.map(item => ({
     id: item.id || 'exp_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
     title: item.title,
@@ -125,6 +137,7 @@ export async function addMultipleExpenses(items) {
     payment_method: item.payment_method || 'UPI',
     notes: item.notes || '',
     is_fixed: Boolean(item.is_fixed),
+    user_name: activeUser,
     created_at: new Date().toISOString()
   }));
 
@@ -157,12 +170,21 @@ export async function deleteExpense(id) {
   return updated;
 }
 
-export async function clearAllExpenses() {
-  localStorage.removeItem(STORAGE_KEYS.EXPENSES);
+export async function clearAllExpenses(userName = '') {
+  const activeUser = userName || getUserProfile();
+  const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
+  
+  const filtered = activeUser ? current.filter(i => i.user_name && i.user_name !== activeUser) : [];
+  localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(filtered));
+
   const client = getSupabaseClient();
   if (client) {
     try {
-      await client.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (activeUser) {
+        await client.from('expenses').delete().eq('user_name', activeUser);
+      } else {
+        await client.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      }
     } catch (e) {}
   }
 }
