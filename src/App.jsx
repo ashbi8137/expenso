@@ -201,15 +201,64 @@ export default function App() {
     }
   };
 
+  // Calculations (MUST be before any early return so hooks stay consistent)
+  const yesterdayObj = new Date();
+  yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+  const yesterdayStr = yesterdayObj.toISOString().split('T')[0];
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const formatDateGroupHeader = (dateStr) => {
+    if (!dateStr || typeof dateStr !== 'string') return 'Unknown Date';
+    
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      if (!isNaN(day) && monthIdx >= 0 && monthIdx < 12) {
+        const monthName = MONTH_NAMES[monthIdx];
+        if (dateStr === todayStr) return `Today (${day} ${monthName})`;
+        if (dateStr === yesterdayStr) return `Yesterday (${day} ${monthName})`;
+        return `${day} ${monthName}`;
+      }
+    }
+
+    if (dateStr === todayStr) return 'Today';
+    if (dateStr === yesterdayStr) return 'Yesterday';
+    return dateStr;
+  };
+
+  // useMemo MUST be called before any early return (React hooks rule)
+  const groupedExpenses = React.useMemo(() => {
+    const groups = {};
+    (expenses || []).forEach(item => {
+      if (!item) return;
+      const dKey = item.date || todayStr;
+      if (!groups[dKey]) groups[dKey] = [];
+      groups[dKey].push(item);
+    });
+
+    const sortedDateKeys = Object.keys(groups).sort((a, b) => (b > a ? 1 : b < a ? -1 : 0));
+
+    return sortedDateKeys.map(dateKey => {
+      const items = (groups[dateKey] || []).sort((a, b) => {
+        const timeA = a.created_at || a.date || '';
+        const timeB = b.created_at || b.date || '';
+        return timeB > timeA ? 1 : timeB < timeA ? -1 : 0;
+      });
+
+      const dayTotal = items.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+      return { dateKey, items, dayTotal };
+    });
+  }, [expenses, todayStr]);
+
   // If user profile is not set, render 1-time full screen setup page
   if (!isSetupDone) {
     return <WelcomeSetupScreen onComplete={handleSetupComplete} />;
   }
-
-  // Calculations
-  const yesterdayObj = new Date();
-  yesterdayObj.setDate(yesterdayObj.getDate() - 1);
-  const yesterdayStr = yesterdayObj.toISOString().split('T')[0];
 
   let grandTotal = 0;
   let todayTotal = 0;
@@ -244,55 +293,6 @@ export default function App() {
   const diffYesterday = todayTotal - yesterdayTotal;
   const isHigher = diffYesterday > 0;
   const absDiff = Math.abs(diffYesterday);
-
-  const MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const formatDateGroupHeader = (dateStr) => {
-    if (!dateStr || typeof dateStr !== 'string') return 'Unknown Date';
-    
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      const monthIdx = parseInt(parts[1], 10) - 1;
-      const day = parseInt(parts[2], 10);
-      if (!isNaN(day) && monthIdx >= 0 && monthIdx < 12) {
-        const monthName = MONTH_NAMES[monthIdx];
-        if (dateStr === todayStr) return `Today (${day} ${monthName})`;
-        if (dateStr === yesterdayStr) return `Yesterday (${day} ${monthName})`;
-        return `${day} ${monthName}`;
-      }
-    }
-
-    if (dateStr === todayStr) return 'Today';
-    if (dateStr === yesterdayStr) return 'Yesterday';
-    return dateStr;
-  };
-
-  // Group expenses by date heading in reverse chronological order (100% Mobile Safe)
-  const groupedExpenses = React.useMemo(() => {
-    const groups = {};
-    (expenses || []).forEach(item => {
-      if (!item) return;
-      const dKey = item.date || todayStr;
-      if (!groups[dKey]) groups[dKey] = [];
-      groups[dKey].push(item);
-    });
-
-    const sortedDateKeys = Object.keys(groups).sort((a, b) => (b > a ? 1 : b < a ? -1 : 0));
-
-    return sortedDateKeys.map(dateKey => {
-      const items = (groups[dateKey] || []).sort((a, b) => {
-        const timeA = a.created_at || a.date || '';
-        const timeB = b.created_at || b.date || '';
-        return timeB > timeA ? 1 : timeB < timeA ? -1 : 0;
-      });
-
-      const dayTotal = items.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
-      return { dateKey, items, dayTotal };
-    });
-  }, [expenses, todayStr]);
 
   // CSV Export
   const handleExportCSV = () => {
