@@ -240,7 +240,7 @@ export default function App() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Expenso_${userName}_${todayStr}.csv`);
+    link.setAttribute('download', `Paisaevide_${userName}_${todayStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -282,7 +282,7 @@ export default function App() {
       
       {/* Top Header */}
       <header className="top-header">
-        <h1 className="app-title">Expenso</h1>
+        <h1 className="app-title">Paisaevide</h1>
         
         {/* Permanent Locked User Badge (Non-clickable) */}
         <div 

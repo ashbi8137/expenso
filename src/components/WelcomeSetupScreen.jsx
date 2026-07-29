@@ -23,7 +23,7 @@ export function WelcomeSetupScreen({ onComplete }) {
           <Banknote size={30} color="#10B981" />
         </div>
         <h1 style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-          Expenso
+          Paisaevide
         </h1>
         <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
           Enter your name to begin
