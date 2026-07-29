@@ -18,7 +18,7 @@ export function getSupabaseClient() {
       supabaseClientInstance = createClient(cfg.url, cfg.anonKey);
       return supabaseClientInstance;
     } catch (e) {
-      console.warn("Supabase init failed", e);
+      console.warn("Supabase client init error", e);
     }
   }
   return null;
@@ -31,7 +31,7 @@ export function getSupabaseConfig() {
   }
   return {
     url: import.meta.env.VITE_SUPABASE_URL || 'https://pmyabpjpnmotfhlyaxwi.supabase.co',
-    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBteWFicGpwnmotfhlyaxwiLCJpYXQiOjE3ODUyNTY2NjMsImV4cCI6MjEwMDgzMjY2M30.mnoP1xJTGpdgmoxBbU7ir8ujz-ehpCeVRkE2GplYZ9A'
+    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBteWFicGpwbm1vdGZobHlheHdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyNTY2NjMsImV4cCI6MjEwMDgzMjY2M30.mnoP1xJTGpdgmoxBbU7ir8ujz-ehpCeVRkE2GplYZ9A'
   };
 }
 
@@ -42,7 +42,7 @@ export function getLockedUser() {
 
 export function saveLockedUser(name) {
   const current = getLockedUser();
-  if (current) return current; // Cannot be changed once locked
+  if (current) return current;
   localStorage.setItem(STORAGE_KEYS.LOCKED_USER, name.trim());
   return name.trim();
 }
@@ -63,29 +63,32 @@ export function saveCustomCategory(categoryObj) {
   return updated;
 }
 
-// Expense CRUD operations (Strict User Portal Isolation)
+// Expense CRUD operations (Robust LocalStorage + Supabase Cloud Sync)
 export async function fetchExpenses() {
   const activeUser = getLockedUser();
-  if (!activeUser) return [];
-
   const localSaved = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
-  const localFiltered = localSaved.filter(i => i.user_name === activeUser);
+  const localFiltered = activeUser ? localSaved.filter(i => !i.user_name || i.user_name === activeUser) : localSaved;
 
   const client = getSupabaseClient();
   if (client) {
     try {
-      const { data, error } = await client
-        .from('expenses')
-        .select('*')
-        .eq('user_name', activeUser)
-        .order('date', { ascending: false });
+      let query = client.from('expenses').select('*').order('date', { ascending: false });
+      if (activeUser) {
+        query = query.eq('user_name', activeUser);
+      }
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
-        return data;
+      const { data, error } = await query;
+
+      if (!error && Array.isArray(data)) {
+        if (data.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
+          return data;
+        }
+      } else if (error) {
+        console.warn("Supabase fetch notice:", error.message);
       }
     } catch (e) {
-      console.warn("Supabase fetch warning", e);
+      console.warn("Supabase connection notice", e);
     }
   }
 
@@ -93,8 +96,7 @@ export async function fetchExpenses() {
 }
 
 export async function addExpense(item) {
-  const activeUser = getLockedUser();
-  if (!activeUser) return null;
+  const activeUser = getLockedUser() || 'User';
 
   const newItem = {
     id: item.id || 'exp_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
@@ -109,16 +111,27 @@ export async function addExpense(item) {
     created_at: new Date().toISOString()
   };
 
+  // 1. Guaranteed Local Persistence (0 data loss on phone/laptop)
   const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
   const updated = [newItem, ...current];
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
 
+  // 2. Cloud DB Insertion to Supabase
   const client = getSupabaseClient();
   if (client) {
     try {
-      await client.from('expenses').insert([newItem]);
+      const { error } = await client.from('expenses').insert([newItem]);
+      if (error) {
+        console.warn("Supabase Cloud Insert Warning:", error.message);
+        // Fallback retry without user_name if user_name column missing in table
+        if (error.message.includes('user_name')) {
+          const fallbackPayload = { ...newItem };
+          delete fallbackPayload.user_name;
+          await client.from('expenses').insert([fallbackPayload]);
+        }
+      }
     } catch (e) {
-      console.warn("Supabase insert warning", e);
+      console.warn("Supabase Cloud Insert Error:", e);
     }
   }
 
@@ -126,15 +139,14 @@ export async function addExpense(item) {
 }
 
 export async function deleteExpense(id) {
-  const activeUser = getLockedUser();
   const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
   const updated = current.filter(item => item.id !== id);
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
 
   const client = getSupabaseClient();
-  if (client && activeUser) {
+  if (client) {
     try {
-      await client.from('expenses').delete().eq('id', id).eq('user_name', activeUser);
+      await client.from('expenses').delete().eq('id', id);
     } catch (e) {}
   }
 
@@ -144,13 +156,17 @@ export async function deleteExpense(id) {
 export async function clearAllExpenses() {
   const activeUser = getLockedUser();
   const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
-  const filtered = activeUser ? current.filter(i => i.user_name !== activeUser) : [];
+  const filtered = activeUser ? current.filter(i => i.user_name && i.user_name !== activeUser) : [];
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(filtered));
 
   const client = getSupabaseClient();
-  if (client && activeUser) {
+  if (client) {
     try {
-      await client.from('expenses').delete().eq('user_name', activeUser);
+      if (activeUser) {
+        await client.from('expenses').delete().eq('user_name', activeUser);
+      } else {
+        await client.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      }
     } catch (e) {}
   }
 }
