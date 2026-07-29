@@ -1,13 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 
 const STORAGE_KEYS = {
-  EXPENSES: 'paisaevide_expenses_v7',
-  LOCKED_USER: 'paisaevide_user_v7',
+  EXPENSES: 'paisaevide_expenses_v8',
+  LOCKED_USER: 'paisaevide_user_v8',
+  DEVICE_ID: 'paisaevide_device_secret_v8',
   SUPABASE_CONFIG: 'expenso_supabase_cfg',
   CUSTOM_CATEGORIES: 'expenso_custom_cats_v1'
 };
 
 let supabaseClientInstance = null;
+
+export function getDeviceId() {
+  let devId = localStorage.getItem(STORAGE_KEYS.DEVICE_ID);
+  if (!devId) {
+    devId = 'dev_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    localStorage.setItem(STORAGE_KEYS.DEVICE_ID, devId);
+  }
+  return devId;
+}
 
 export function getSupabaseClient() {
   if (supabaseClientInstance) return supabaseClientInstance;
@@ -63,33 +73,50 @@ export function saveCustomCategory(categoryObj) {
   return updated;
 }
 
-// Expense CRUD operations (Exact Match for Supabase Schema: id, created_at, date, title, amount, category)
+// Expense CRUD operations (Full Payload with user_name & device_id)
 export async function fetchExpenses() {
+  const devId = getDeviceId();
+  const activeUser = getLockedUser();
   const localSaved = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES) || '[]');
-  const client = getSupabaseClient();
+  const localFiltered = localSaved.filter(i => i.device_id === devId || i.user_name === activeUser);
 
+  const client = getSupabaseClient();
   if (client) {
     try {
-      const { data, error } = await client
-        .from('expenses')
-        .select('*')
-        .order('date', { ascending: false });
+      let query = client.from('expenses').select('*').order('date', { ascending: false });
+      if (devId) {
+        query = query.eq('device_id', devId);
+      } else if (activeUser) {
+        query = query.eq('user_name', activeUser);
+      }
+
+      const { data, error } = await query;
 
       if (!error && Array.isArray(data)) {
-        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
-        return data;
+        if (data.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(data));
+          return data;
+        }
       } else if (error) {
-        console.warn("Supabase fetch notice:", error.message);
+        // Fallback fetch if device_id column does not exist yet
+        const { data: fallbackData } = await client.from('expenses').select('*').order('date', { ascending: false });
+        if (Array.isArray(fallbackData) && fallbackData.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(fallbackData));
+          return fallbackData;
+        }
       }
     } catch (e) {
       console.warn("Supabase connection notice", e);
     }
   }
 
-  return localSaved;
+  return localFiltered;
 }
 
 export async function addExpense(item) {
+  const devId = getDeviceId();
+  const activeUser = getLockedUser() || 'User';
+
   const newItem = {
     id: item.id || 'exp_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
     title: item.title,
@@ -99,6 +126,8 @@ export async function addExpense(item) {
     payment_method: item.payment_method || 'UPI',
     notes: item.notes || '',
     is_fixed: Boolean(item.is_fixed),
+    user_name: activeUser,
+    device_id: devId,
     created_at: new Date().toISOString()
   };
 
@@ -107,22 +136,36 @@ export async function addExpense(item) {
   const updated = [newItem, ...current];
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
 
-  // 2. Cloud DB Insertion to Supabase matching exact table schema
+  // 2. Cloud DB Insertion to Supabase
   const client = getSupabaseClient();
   if (client) {
     try {
-      const dbPayload = {
+      // Primary payload containing user_name & device_id
+      const fullPayload = {
         id: newItem.id,
         created_at: newItem.created_at,
         date: newItem.date,
         title: newItem.title,
         amount: Number(newItem.amount),
-        category: newItem.category
+        category: newItem.category,
+        user_name: newItem.user_name,
+        device_id: newItem.device_id
       };
 
-      const { error } = await client.from('expenses').insert([dbPayload]);
+      const { error } = await client.from('expenses').insert([fullPayload]);
+      
       if (error) {
-        console.error("Supabase Cloud Insert Warning:", error.message);
+        console.warn("Supabase Full Insert Notice (Add columns to SQL):", error.message);
+        // Fallback retry with basic columns if user_name or device_id columns aren't created yet in SQL
+        const basicPayload = {
+          id: newItem.id,
+          created_at: newItem.created_at,
+          date: newItem.date,
+          title: newItem.title,
+          amount: Number(newItem.amount),
+          category: newItem.category
+        };
+        await client.from('expenses').insert([basicPayload]);
       }
     } catch (e) {
       console.error("Supabase Cloud Insert Error:", e);
