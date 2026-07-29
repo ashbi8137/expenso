@@ -43,7 +43,76 @@ import {
 import { AddCategoryModal } from './components/AddCategoryModal';
 import { WelcomeSetupScreen } from './components/WelcomeSetupScreen';
 import { DateFilterModal } from './components/DateFilterModal';
-import { EditExpenseModal } from './components/EditExpenseModal';
+import { Check } from 'lucide-react';
+
+// Inline Edit Form - renders directly below a transaction row
+function InlineEditForm({ expense, categories, todayStr, onSave, onCancel }) {
+  const [title, setTitle] = React.useState(expense.title || '');
+  const [amount, setAmount] = React.useState(expense.amount || '');
+  const [category, setCategory] = React.useState(expense.category || 'Food & Dining');
+  const [date, setDate] = React.useState(expense.date || todayStr);
+  const [error, setError] = React.useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) { setError('Enter a title'); return; }
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) { setError('Enter valid amount'); return; }
+    if (date > todayStr) { setError('Future dates not allowed'); return; }
+    onSave({ ...expense, title: trimmedTitle, amount: numAmount, category, date });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+      {error && (
+        <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', padding: '0.4rem 0.7rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 700 }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem', display: 'block' }}>Amount</label>
+          <input type="number" step="any" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
+            style={{ width: '100%', padding: '0.5rem 0.6rem', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '0.9rem', fontWeight: 800, color: '#10B981', background: '#ECFDF5', outline: 'none', boxSizing: 'border-box' }} required />
+        </div>
+        <div style={{ flex: 2 }}>
+          <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem', display: 'block' }}>Title</label>
+          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+            style={{ width: '100%', padding: '0.5rem 0.6rem', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '0.9rem', fontWeight: 600, color: '#0F172A', outline: 'none', boxSizing: 'border-box' }} required />
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem', display: 'block' }}>Category</label>
+          <select value={category} onChange={(e) => setCategory(e.target.value)}
+            style={{ width: '100%', padding: '0.5rem 0.4rem', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '0.8rem', fontWeight: 600, color: '#0F172A', background: '#FFF', outline: 'none', boxSizing: 'border-box' }}>
+            {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem', display: 'block' }}>Date</label>
+          <input type="date" max={todayStr} value={date} onChange={(e) => setDate(e.target.value)}
+            style={{ width: '100%', padding: '0.5rem 0.4rem', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '0.8rem', fontWeight: 600, color: '#0F172A', outline: 'none', boxSizing: 'border-box' }} required />
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button type="button" onClick={onCancel}
+          style={{ flex: 1, padding: '0.55rem', borderRadius: '12px', background: '#F1F5F9', border: '1px solid #E2E8F0', color: '#475569', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+          Cancel
+        </button>
+        <button type="submit"
+          style={{ flex: 1.5, padding: '0.55rem', borderRadius: '12px', background: '#10B981', border: 'none', color: '#FFF', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', boxShadow: '0 3px 10px rgba(16,185,129,0.3)' }}>
+          <Check size={14} /> Save
+        </button>
+      </div>
+    </form>
+  );
+}
+
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home'); // home, add, stats
@@ -481,47 +550,72 @@ export default function App() {
                     {/* Transaction Rows within this date */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
                       {group.items.map(item => (
-                        <div key={item.id} className="item-row">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <div className="item-icon" style={{ background: getCategoryBg(item.category) }}>
-                              {getCategoryIcon(item.category)}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{item.title}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
-                                {item.category}
+                        <React.Fragment key={item.id}>
+                          <div className="item-row">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <div className="item-icon" style={{ background: getCategoryBg(item.category) }}>
+                                {getCategoryIcon(item.category)}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{item.title}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                                  {item.category}
+                                </div>
                               </div>
                             </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                              <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                                ₹{item.amount.toLocaleString('en-IN')}
+                              </span>
+
+                              {/* Edit Expense Button */}
+                              <button
+                                type="button"
+                                onClick={() => setEditingExpense(editingExpense?.id === item.id ? null : item)}
+                                style={{
+                                  background: editingExpense?.id === item.id ? '#ECFDF5' : '#F1F5F9',
+                                  border: `1px solid ${editingExpense?.id === item.id ? '#A7F3D0' : '#E2E8F0'}`,
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '10px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  color: editingExpense?.id === item.id ? '#10B981' : '#475569',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title="Edit Expense"
+                              >
+                                {editingExpense?.id === item.id ? <X size={15} /> : <Edit3 size={15} />}
+                              </button>
+                            </div>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
-                              ₹{item.amount.toLocaleString('en-IN')}
-                            </span>
-
-                            {/* Edit Expense Button */}
-                            <button
-                              type="button"
-                              onClick={() => setEditingExpense(item)}
-                              style={{
-                                background: '#F1F5F9',
-                                border: '1px solid #E2E8F0',
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '10px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                color: '#475569',
-                                transition: 'all 0.15s ease'
-                              }}
-                              title="Edit Expense"
-                            >
-                              <Edit3 size={15} />
-                            </button>
-                          </div>
-                        </div>
+                          {/* Inline Edit Form - appears directly below this item */}
+                          {editingExpense?.id === item.id && (
+                            <div style={{
+                              background: '#FAFBFC',
+                              border: '1px solid #E2E8F0',
+                              borderRadius: '16px',
+                              padding: '0.85rem',
+                              marginTop: '-0.2rem',
+                              animation: 'fadeIn 0.2s ease'
+                            }}>
+                              <InlineEditForm
+                                expense={item}
+                                categories={categories}
+                                todayStr={todayStr}
+                                onSave={(updated) => {
+                                  handleSaveEditedExpense(updated);
+                                  setEditingExpense(null);
+                                }}
+                                onCancel={() => setEditingExpense(null)}
+                              />
+                            </div>
+                          )}
+                        </React.Fragment>
                       ))}
                     </div>
 
@@ -833,15 +927,7 @@ export default function App() {
         onAddCategory={handleAddCategory}
       />
 
-      {/* Edit Expense Modal */}
-      <EditExpenseModal
-        isOpen={Boolean(editingExpense)}
-        onClose={() => setEditingExpense(null)}
-        expense={editingExpense}
-        onSave={handleSaveEditedExpense}
-        categories={categories}
-        todayStr={todayStr}
-      />
+
 
     </div>
   );
